@@ -31,6 +31,15 @@ public class DestroyByContact : MonoBehaviour {
             // If we hit the Player, use the player explosion too
             if (other.CompareTag("Player"))
             {
+                // If it is a power up, we need to power up
+                if (gameObject.CompareTag("PowerUp"))
+                {
+                    PowerUpController controller = gameObject.GetComponent<PowerUpController>();
+                    controller.Activate();
+                    Destroy(gameObject);
+                    return;
+                }
+
                 // If player is invincible, do nothing
                 if (gameController.IsPlayerInvincible())
                     return;

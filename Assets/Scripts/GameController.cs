@@ -1,12 +1,13 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-public class GameController : MonoBehaviour {
-
+public class GameController : MonoBehaviour
+{
     public GameObject[] hazards;
-    public GameObject enemyShip;
+    public GameObject[] powerUps;
     public GameObject player;
     public Vector3 spawnValues;
     public int hazardCount;
@@ -14,6 +15,8 @@ public class GameController : MonoBehaviour {
     public float spawnWait;
     public float startWait;
     public float waveWait;
+    public float powerUpWait;
+
     public int lives;
 
     public float startingEnemySpeed;
@@ -32,8 +35,9 @@ public class GameController : MonoBehaviour {
 
     private bool playerInvincible;
     private float playerInvincibleEnds;
-    
-    void Start()
+    private GameObject localPlayerObject;
+
+    private void Start()
     {
         score = 0;
         level = 1;
@@ -49,11 +53,13 @@ public class GameController : MonoBehaviour {
 
         CreatePlayer();
 
-        // Start spawning hazards and enemies
+        // Start spawning stuff
         StartCoroutine(SpawnWaves());
+
+        StartCoroutine(SpawnPowerUps());
     }
 
-    void Update()
+    private void Update()
     {
         // Allows the game to be restarted
         if (restart && Input.GetKeyDown(KeyCode.R))
@@ -96,12 +102,20 @@ public class GameController : MonoBehaviour {
         }
     }
 
+    public void MakePlayerInvincible(float seconds)
+    {
+        // Set temporary invincibility
+        playerInvincible = true;
+        playerInvincibleEnds = Time.time + seconds;
+        StartCoroutine(Blink(localPlayerObject.GetComponent<Renderer>(), seconds));
+    }
+
     public bool IsPlayerInvincible()
     {
         return playerInvincible;
     }
 
-    IEnumerator SpawnWaves()
+    private IEnumerator SpawnWaves()
     {
         // Wait a bit before starting the waves for player to get ready
         yield return new WaitForSeconds(startWait);
@@ -112,28 +126,31 @@ public class GameController : MonoBehaviour {
             {
                 wave = wv;
                 UpdateLevel();
+                int numEnemyShipsAlready = 0;
 
                 for (int i = 0; i < hazardCount; i++)
                 {
-                    Vector3 spawnPosition = new Vector3(Random.Range(-spawnValues.x, spawnValues.x), spawnValues.y, spawnValues.z);
-                    Quaternion spawnRotation = Quaternion.identity;
-
-                    GameObject hazard = ChooseRandomHazard();
-                    GameObject hazardInstance = Instantiate(hazard, spawnPosition, spawnRotation);
-                    hazardInstance.GetComponent<Mover>().speed = currentEnemySpeed * -1;
+                    GameObject hazard = ChooseRandomHazard(numEnemyShipsAlready);
+                    if (hazard.CompareTag("Enemy"))
+                    {
+                        Vector3 enemyShipSpawnPosition = new Vector3(Random.Range(-spawnValues.x, spawnValues.x), spawnValues.y, spawnValues.z);
+                        Quaternion enemyShipSpawnRotation = Quaternion.Euler(180f, 0.0f, 180f);
+                        GameObject hazardInstance = Instantiate(hazard, enemyShipSpawnPosition, enemyShipSpawnRotation);
+                        hazardInstance.GetComponent<EnemyShipController>().speed = currentEnemySpeed;
+                        hazardInstance.GetComponent<EnemyShipController>().boltSpeed = currentEnemySpeed * 3;
+                        numEnemyShipsAlready++;
+                    }
+                    else
+                    {
+                        Vector3 spawnPosition = new Vector3(Random.Range(-spawnValues.x, spawnValues.x), spawnValues.y, spawnValues.z);
+                        Quaternion spawnRotation = Quaternion.identity;
+                        GameObject hazardInstance = Instantiate(hazard, spawnPosition, spawnRotation);
+                        hazardInstance.GetComponent<Mover>().speed = currentEnemySpeed * -1;
+                    }
 
                     // Wait the spawnWait time before sending in another wave
                     yield return new WaitForSeconds(spawnWait);
                 }
-
-                // TODO: Put the enemy in randomly with the hazards, not just at end
-                // Create one enemy at end of wave
-                Vector3 enemyShipSpawnPosition = new Vector3(Random.Range(-spawnValues.x, spawnValues.x), spawnValues.y, spawnValues.z);
-                Quaternion enemyShipSpawnRotation = Quaternion.Euler(180f, 0.0f, 180f);
-                GameObject enemyShipInstance = Instantiate(enemyShip, enemyShipSpawnPosition, enemyShipSpawnRotation);
-                enemyShipInstance.GetComponent<EnemyShipController>().speed = currentEnemySpeed;
-                enemyShipInstance.GetComponent<EnemyShipController>().boltSpeed = currentEnemySpeed * 3;
-
                 yield return new WaitForSeconds(waveWait);
 
                 if (gameOver)
@@ -151,26 +168,52 @@ public class GameController : MonoBehaviour {
         }
     }
 
-    void UpdateScore()
+    private IEnumerator SpawnPowerUps()
+    {
+        // Wait a bit before starting the waves for player to get ready
+        yield return new WaitForSeconds(powerUpWait);
+
+        while (1 == 1)
+        {
+            int numPossiblePowerUps = powerUps.Length;
+            int random = Random.Range(0, numPossiblePowerUps);
+            GameObject powerUp = powerUps[random];
+
+            Vector3 spawnPosition = new Vector3(Random.Range(-spawnValues.x, spawnValues.x), spawnValues.y, spawnValues.z);
+            Quaternion spawnRotation = Quaternion.identity;
+            GameObject powerUpInstance = Instantiate(powerUp, spawnPosition, spawnRotation);
+            powerUpInstance.GetComponent<Mover>().speed = currentEnemySpeed * -1;
+
+            // Wait the spawnWait time before sending in another wave
+            yield return new WaitForSeconds(powerUpWait);
+        }
+    }
+
+    private void UpdateScore()
     {
         gameGuiText.scoreText.text = "Score: " + score;
     }
 
-    void UpdateLives()
+    private void UpdateLives()
     {
         gameGuiText.livesText.text = "Lives: " + lives;
     }
 
-    void UpdateLevel()
+    private void UpdateLevel()
     {
         gameGuiText.levelText.text = "Level: " + level + "." + wave;
     }
 
-    private GameObject ChooseRandomHazard()
+    private GameObject ChooseRandomHazard(int numEnemyShipsAlready)
     {
-        int numPossibleHazards = hazards.Length;
+        // Modify hazards collection if we have already a spawned enough enemy ships
+        List<GameObject> hazardsList = hazards.ToList();
+        if (numEnemyShipsAlready >= 2)
+            hazardsList.RemoveAll(o => o.CompareTag("Enemy"));
+
+        int numPossibleHazards = hazardsList.Count;
         int random = Random.Range(0, numPossibleHazards);
-        return hazards[random];
+        return hazardsList[random];
     }
 
     private void GameOver()
@@ -184,12 +227,9 @@ public class GameController : MonoBehaviour {
         Debug.Log("Creating player");
         Vector3 staringPosition = new Vector3(0, 0, 0);
         Quaternion startingRotation = Quaternion.Euler(0f, 0f, 0f);
-        GameObject localPlayerObject = Instantiate(player, staringPosition, startingRotation);
+        localPlayerObject = Instantiate(player, staringPosition, startingRotation);
 
-        // Set temporary invincibility
-        playerInvincible = true;
-        playerInvincibleEnds = Time.time + 3;
-        StartCoroutine(Blink(localPlayerObject.GetComponent<Renderer>(), 3.0f));
+        MakePlayerInvincible(3.0f);
     }
 
     private IEnumerator Blink(Renderer gameObjectRenderer, float duration)
