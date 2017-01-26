@@ -36,6 +36,10 @@ public class PowerUpController : MonoBehaviour
             case PowerUpType.INVULNERABLE:
                 gameController.MakePlayerInvincible(10.0f);
                 break;
+
+            case PowerUpType.SIDECAR:
+                gameController.SetPlayerSidecarEnabled(15.0f);
+                break;
         }
     }
 

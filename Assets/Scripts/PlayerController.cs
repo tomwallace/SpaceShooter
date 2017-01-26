@@ -1,20 +1,20 @@
-﻿using System.Collections;
-using System.Collections.Generic;
-using UnityEngine;
+﻿using UnityEngine;
 
 [System.Serializable]
 public class Boundary
 {
     public float xMin, xMax, zMin, zMax;
-
 }
 
-public class PlayerController : MonoBehaviour {
-
+public class PlayerController : MonoBehaviour
+{
     public float speed;
     public float tilt;
     public Boundary boundary;
     public float fireRate;
+
+    public GameObject sideCar;
+    public bool sideCarEnabled;
 
     public GameObject shot;
     public Transform[] shotSpawns;
@@ -22,16 +22,17 @@ public class PlayerController : MonoBehaviour {
     private Rigidbody rb;
     private AudioSource audioSource;
     private float nextFire;
-    
 
-    void Start()
+    private void Start()
     {
         rb = GetComponent<Rigidbody>();
         audioSource = GetComponent<AudioSource>();
     }
 
-    void Update()
+    private void Update()
     {
+        sideCar.SetActive(sideCarEnabled);
+
         // Create new bolt if we have fired
         if (Input.GetButton("Fire1") && Time.time > nextFire)
         {
@@ -44,7 +45,7 @@ public class PlayerController : MonoBehaviour {
         }
     }
 
-    void FixedUpdate()
+    private void FixedUpdate()
     {
         float moveHorizontal = Input.GetAxis("Horizontal");
         float moveVertical = Input.GetAxis("Vertical");

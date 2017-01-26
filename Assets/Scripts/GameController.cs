@@ -35,6 +35,8 @@ public class GameController : MonoBehaviour
 
     private bool playerInvincible;
     private float playerInvincibleEnds;
+    private bool playerSideCarEnabled;
+    private float playerSideCarEnds;
     private GameObject localPlayerObject;
 
     private void Start()
@@ -72,6 +74,13 @@ public class GameController : MonoBehaviour
         if (playerInvincible && Time.time > playerInvincibleEnds)
         {
             playerInvincible = false;
+        }
+
+        // Check for player invincibility
+        if (playerSideCarEnabled && Time.time > playerSideCarEnds)
+        {
+            playerSideCarEnabled = false;
+            localPlayerObject.GetComponent<PlayerController>().sideCarEnabled = false;
         }
     }
 
@@ -113,6 +122,13 @@ public class GameController : MonoBehaviour
     public bool IsPlayerInvincible()
     {
         return playerInvincible;
+    }
+
+    public void SetPlayerSidecarEnabled(float seconds)
+    {
+        localPlayerObject.GetComponent<PlayerController>().sideCarEnabled = true;
+        playerSideCarEnabled = true;
+        playerSideCarEnds = Time.time + seconds;
     }
 
     private IEnumerator SpawnWaves()
@@ -234,14 +250,17 @@ public class GameController : MonoBehaviour
 
     private IEnumerator Blink(Renderer gameObjectRenderer, float duration)
     {
-        var endTime = Time.time + duration;
-        while (Time.time < endTime)
+        if (!gameObject.CompareTag("Sidecar"))
         {
-            gameObjectRenderer.GetComponent<Renderer>().enabled = false;
-            yield return new WaitForSeconds(0.1f);
+            var endTime = Time.time + duration;
+            while (Time.time < endTime)
+            {
+                gameObjectRenderer.GetComponent<Renderer>().enabled = false;
+                yield return new WaitForSeconds(0.1f);
 
-            gameObjectRenderer.GetComponent<Renderer>().enabled = true;
-            yield return new WaitForSeconds(0.2f);
+                gameObjectRenderer.GetComponent<Renderer>().enabled = true;
+                yield return new WaitForSeconds(0.2f);
+            }
         }
     }
 }
